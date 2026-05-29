@@ -174,3 +174,10 @@ fig.update_yaxes(title_text=t["vel"], secondary_y=True)
 
 # Exibe o gráfico no Streamlit
 st.plotly_chart(fig, use_container_width=True)
+
+# --- TABELA DE DADOS BRUTOS (OPCIONAL PARA AUDITORIA) ---
+st.markdown("---")
+with st.expander("🔎 Ver Matriz de Dados Enviada para a IA" if is_pt else "🔎 View Raw Data Matrix Sent to AI"):
+    # Reordenando as colunas para ficar mais elegante na tabela
+    df_exibicao = df[["velocidade", "rpm", "marcha", "aceleracao"]]
+    st.dataframe(df_exibicao, use_container_width=True)
