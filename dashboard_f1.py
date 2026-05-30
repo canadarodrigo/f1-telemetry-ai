@@ -141,39 +141,75 @@ col3.metric(t["marcha"], int(marcha_atual))
 st.markdown("---")
 st.subheader(t["tit_grafico"])
 
-# Cria a estrutura do gráfico com dois eixos Y
-fig = make_subplots(specs=[[{"secondary_y": True}]])
+# --- GERANDO COORDENADAS ESPACIAIS (GPS Simulado: S do Senna) ---
+# Valores de X virando para a esquerda, e Y reduzindo (descendo a reta)
+df["X"] = [0, 0, 0, -2, -8, -18, -32, -50, -72, -100]
+df["Y"] = [500, 440, 380, 320, 260, 205, 155, 110, 70, 35]
 
-df = pd.DataFrame(janela_completa)
-df.index.name = t["ms"]
+st.markdown("---")
+    
+# --- DIVIDINDO A TELA EM DUAS COLUNAS ---
+col_grafico1, col_grafico2 = st.columns(2)
 
-# Adiciona a linha de RPM no Eixo Y Principal (Esquerdo)
-fig.add_trace(
-    go.Scatter(x=df.index, y=df['rpm'], name=t["rpm"], mode='lines+markers', line=dict(color='#87CEEB')), # Azul Claro
-    secondary_y=False,
-)
+# COLUNA ESQUERDA: O GRÁFICO DE TELEMETRIA (Linhas)
+with col_grafico1:
+    st.subheader("📊 Telemetria do Motor" if is_pt else "📊 Engine Telemetry")
+    fig_linhas = make_subplots(specs=[[{"secondary_y": True}]])
+    
+    # Linha do RPM (Eixo Principal)
+    fig_linhas.add_trace(go.Scatter(x=df.index, y=df['rpm'], name='RPM', line=dict(color='red', width=3)), secondary_y=False)
+    # Linha da Velocidade (Eixo Secundário)
+    fig_linhas.add_trace(go.Scatter(x=df.index, y=df['velocidade'], name='Velocidade' if is_pt else 'Speed', line=dict(color='blue', width=3)), secondary_y=True)
+    
+    fig_linhas.update_layout(height=400, margin=dict(l=0, r=0, t=30, b=0), plot_bgcolor="rgba(0,0,0,0)")
+    fig_linhas.update_yaxes(title_text="RPM", secondary_y=False)
+    fig_linhas.update_yaxes(title_text="km/h", secondary_y=True)
+    st.plotly_chart(fig_linhas, use_container_width=True)
 
-# Adiciona a linha de Velocidade no Eixo Y Secundário (Direito)
-fig.add_trace(
-    go.Scatter(x=df.index, y=df['velocidade'], name=t["vel"], mode='lines+markers', line=dict(color='#0056b3')), # Azul Escuro
-    secondary_y=True,
-)
+# COLUNA DIREITA: O GRÁFICO ESPACIAL (Mini-Mapa GPS)
+with col_grafico2:
+    st.subheader("🗺️ Visão do Circuito (GPS)" if is_pt else "🗺️ Circuit View (GPS)")
+    fig_mapa = go.Figure()
+    
+    # Traçado Passado (9 pontos)
+    fig_mapa.add_trace(go.Scatter(
+        x=df["X"][:9], y=df["Y"][:9], 
+        mode='lines+markers', name='Passado' if is_pt else 'Past', 
+        line=dict(color='gray', dash='dot', width=2),
+        marker=dict(size=8, color='gray')
+    ))
+    
+    # Ponto Atual (10º ponto - Onde o piloto está agora)
+    fig_mapa.add_trace(go.Scatter(
+        x=[df["X"].iloc[9]], y=[df["Y"].iloc[9]], 
+        mode='markers', name='Presente' if is_pt else 'Present', 
+        marker=dict(color='blue', size=14, line=dict(color='white', width=2))
+    ))
 
-# Configurações dos eixos e título
-fig.update_layout(
-    title_text="",
-    xaxis_title=t["ms"],
-    legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
-)
+    # A Mágica: Projetando o Futuro no mapa se a IA já calculou a previsão
+    if prever and resposta and resposta.status_code == 200:
+        previsao_velocidade = resposta.json()['previsao'][0][0]
+        # Calculamos a próxima coordenada da curva matematicamente
+        futuro_x = df["X"].iloc[9] - 35
+        futuro_y = df["Y"].iloc[9] - 25
+        
+        # Se a previsão for alta (acima de 160 km/h), o carro vai mais longe. Se for baixa, freia antes.
+        fator_inercia = previsao_velocidade / 150.0 
+        
+        fig_mapa.add_trace(go.Scatter(
+            x=[futuro_x * fator_inercia], y=[futuro_y], 
+            mode='markers', name='Futuro (IA)' if is_pt else 'Future (AI)', 
+            marker=dict(color='red', size=18, symbol='star', line=dict(color='yellow', width=2))
+        ))
 
-# Define o título do eixo Y principal (Esquerdo)
-fig.update_yaxes(title_text=t["rpm"], secondary_y=False)
-
-# Define o título do eixo Y secundário (Direito)
-fig.update_yaxes(title_text=t["vel"], secondary_y=True)
-
-# Exibe o gráfico no Streamlit
-st.plotly_chart(fig, use_container_width=True)
+    # Ocultando os eixos numéricos para parecer um mapa real
+    fig_mapa.update_layout(
+        height=400, margin=dict(l=0, r=0, t=30, b=0), 
+        plot_bgcolor="rgba(0,0,0,0.05)",
+        xaxis=dict(visible=False, showgrid=False), 
+        yaxis=dict(visible=False, showgrid=False)
+    )
+    st.plotly_chart(fig_mapa, use_container_width=True)
 
 # --- TABELA DE DADOS BRUTOS (OPCIONAL PARA AUDITORIA) ---
 st.markdown("---")
