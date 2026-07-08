@@ -5,17 +5,15 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import time
 
-# Configuração da página
 st.set_page_config(page_title="F1 Telemetry AI", page_icon="🏎️", layout="wide")
 
-# --- SELEÇÃO DE IDIOMA (BILINGUAL TOGGLE) ---
+# --- SELEÇÃO DE IDIOMA ---
 idioma_selecionado = st.sidebar.radio("🌐 Language / Idioma:", ["🇧🇷 Português", "🇨🇦 English"])
 is_pt = idioma_selecionado == "🇧🇷 Português"
 
-# --- DICIONÁRIO DE TRADUÇÕES ---
 t = {
     "titulo": "🏎️ IA de Previsão de Telemetria F1" if is_pt else "🏎️ F1 Telemetry Prediction AI",
-    "subtitulo": "Ajuste os controles e veja a rede neural (LSTM) prevendo a velocidade em tempo real." if is_pt else "Adjust controls and watch the neural network (LSTM) predict speed in real-time.",
+    "subtitulo": "Ajuste os controles e veja a rede neural (LSTM) prevendo a inércia em tempo real." if is_pt else "Adjust controls and watch the neural network (LSTM) predict inertia in real-time.",
     "config_cloud": "⚙️ Conexão Cloud" if is_pt else "⚙️ Cloud Connection",
     "controles": "🕹️ Controles do Piloto" if is_pt else "🕹️ Driver Controls (Current)",
     "simule": "Simule a entrada na curva:" if is_pt else "Simulate corner entry:",
@@ -24,37 +22,16 @@ t = {
     "marcha": "Marcha" if is_pt else "Gear",
     "acel": "Aceleração (G)" if is_pt else "Acceleration (G)",
     "status_ia": "Status do Motor IA" if is_pt else "AI Engine Status",
-    "latencia": "ms de latência" if is_pt else "ms latency",
+    "latencia": "ms" if is_pt else "ms",
     "vel_agora": "Sua Velocidade (Agora)" if is_pt else "Your Speed (Now)",
     "prev_futuro": "Previsão da IA (Futuro)" if is_pt else "AI Prediction (Future)",
-    "ms": "Milissegundos" if is_pt else "Milliseconds",
-    "erro_servidor": "⚠️ Servidor na nuvem indisponível." if is_pt else "⚠️ Cloud server unavailable.",
+    "ms_legenda": "Milissegundos" if is_pt else "Milliseconds",
     "limpar": "🔄 Limpar Dados / Reset Data" if is_pt else "🔄 Reset Data / Limpar Dados"
 }
 
 st.title(t["titulo"])
 st.markdown(t["subtitulo"])
 
-# --- EXPLICAÇÃO DIDÁTICA ---
-with st.expander("ℹ️ Entenda a Mágica: Passado, Presente e Futuro" if is_pt else "ℹ️ Understand the Magic: Past, Present, and Future"):
-    if is_pt:
-        st.markdown("""
-        **Como a IA prevê a velocidade?**
-        Redes Neurais LSTM não olham apenas para uma "foto" isolada do carro, elas assistem a um "filme" para entender a inércia.
-        * ⏪ **O Passado (Memória):** O gráfico mostra 9 instantes anteriores de uma frenagem forte antes da curva.
-        * 🕹️ **O Presente (Sua Ação):** Os controles laterais representam o que o piloto decidiu fazer neste exato milissegundo.
-        * 🔮 **O Futuro (A Previsão):** A IA processa essa linha do tempo inteira e calcula qual será a velocidade do carro no próximo instante.
-        """)
-    else:
-        st.markdown("""
-        **How does the AI predict speed?**
-        LSTM Neural Networks don't just look at an isolated "photo" of the car; they watch a "movie" to understand inertia.
-        * ⏪ **The Past (Memory):** The chart shows 9 previous instants of heavy braking before a corner.
-        * 🕹️ **The Present (Your Action):** The side controls represent what the driver decided to do at this exact millisecond.
-        * 🔮 **The Future (Prediction):** The AI processes this entire timeline and calculates what the car's speed will be in the very next instant.
-        """)
-
-# --- FUNÇÃO DE RESET (CALLBACK) ---
 def resetar_dados():
     st.session_state["slider_vel"] = 170.0
     st.session_state["slider_rpm"] = 10500.0
@@ -63,7 +40,6 @@ def resetar_dados():
     if 'dados_historicos' in st.session_state:
         del st.session_state['dados_historicos']
 
-# --- INICIALIZAÇÃO DO ESTADO DA SESSÃO ---
 if 'dados_historicos' not in st.session_state:
     st.session_state['dados_historicos'] = [
         {"velocidade": 315.0, "rpm": 11500.0, "marcha": 8.0, "aceleracao": -0.5},
@@ -77,130 +53,110 @@ if 'dados_historicos' not in st.session_state:
         {"velocidade": 185.0, "rpm": 11500.0, "marcha": 5.0, "aceleracao": -3.5},
     ]
 
-# --- BARRA LATERAL (CONTROLES E API) ---
 with st.sidebar:
-    st.markdown("---")
     st.header(t["config_cloud"])
     api_url = st.text_input("URL (GCP):", value="https://f1-telemetry-api-50878659952.us-central1.run.app/prever")
     
     st.markdown("---")
     st.header(t["controles"])
-    st.markdown(t["simule"])
     
     vel_atual = st.slider(t["vel"], 50.0, 350.0, 170.0, step=1.0, key="slider_vel")
     rpm_atual = st.slider(t["rpm"], 5000.0, 13000.0, 10500.0, step=100.0, key="slider_rpm")
     marcha_atual = st.slider(t["marcha"], 1.0, 8.0, 4.0, step=1.0, key="slider_marcha")
     acel_atual = st.slider(t["acel"], -5.0, 2.0, -2.0, step=0.1, key="slider_acel")
-
-    st.markdown("---")
+    
     st.button(t["limpar"], type="secondary", use_container_width=True, on_click=resetar_dados)
 
-# --- PREPARAÇÃO DOS DADOS ---
-ponto_dinamico = {
-    "velocidade": vel_atual, 
-    "rpm": rpm_atual, 
-    "marcha": marcha_atual, 
-    "aceleracao": acel_atual
-}
+ponto_dinamico = {"velocidade": vel_atual, "rpm": rpm_atual, "marcha": marcha_atual, "aceleracao": acel_atual}
 janela_completa = st.session_state['dados_historicos'] + [ponto_dinamico]
 
-# Criando o DataFrame fundamental para os gráficos
 df = pd.DataFrame(janela_completa)
-df.index.name = t["ms"]
+df.index.name = t["ms_legenda"]
 
-# --- REQUISIÇÃO PARA A NUVEM ---
-payload = {"pontos": janela_completa}
+# --- API ---
 inicio = time.time()
-velocidade_prev = vel_atual # Fallback de segurança
+velocidade_prev = vel_atual
 sucesso_api = False
+latencia_ms = 0
 
 try:
-    resposta = requests.post(api_url, json=payload)
+    resposta = requests.post(api_url, json={"pontos": janela_completa})
     latencia_ms = round((time.time() - inicio) * 1000)
-    
     if resposta.status_code == 200:
-        dados_retorno = resposta.json()
-        velocidade_prev = dados_retorno.get("velocidade_prevista_kmh", vel_atual)
+        velocidade_prev = resposta.json().get("velocidade_prevista_kmh", vel_atual)
         sucesso_api = True
-        st.success(f"{t['status_ia']}: Online 🟢 ({latencia_ms} {t['latencia']})")
-    else:
-        st.error(f"❌ Erro HTTP {resposta.status_code}")
-except Exception as e:
-    st.error(t["erro_servidor"])
+except:
+    pass
 
-# --- PAINEL DE MÉTRICAS SUPERIORES ---
-st.markdown("---")
 col1, col2, col3 = st.columns(3)
-col1.metric(t["vel_agora"], f"{vel_atual} km/h")
-col2.metric(t["prev_futuro"], f"{velocidade_prev} km/h", delta=round(velocidade_prev - vel_atual, 2))
-col3.metric(t["marcha"], int(marcha_atual))
+col1.metric(t["status_ia"], "Online 🟢" if sucesso_api else "Offline 🔴", f"{latencia_ms} {t['latencia']}")
+col2.metric(t["vel_agora"], f"{vel_atual} km/h")
+col3.metric(t["prev_futuro"], f"{velocidade_prev} km/h", delta=round(velocidade_prev - vel_atual, 2))
 
-# --- GERANDO COORDENADAS ESPACIAIS (GPS Simulado: S do Senna) ---
-df["X"] = [0, 0, 0, -2, -8, -18, -32, -50, -72, -100]
-df["Y"] = [500, 440, 380, 320, 260, 205, 155, 110, 70, 35]
+# --- COORDENADAS DO CIRCUITO (S DO SENNA) ---
+df["X"] = [0, -5, -15, -28, -45, -65, -88, -112, -135, -155]
+df["Y"] = [500, 460, 420, 380, 340, 300, 260, 220, 180, 140]
 
 st.markdown("---")
-
-# --- DIVIDINDO A TELA EM DUAS COLUNAS ---
 col_grafico1, col_grafico2 = st.columns(2)
 
-# COLUNA ESQUERDA: O GRÁFICO DE TELEMETRIA (Linhas)
 with col_grafico1:
     st.subheader("📊 Telemetria do Motor" if is_pt else "📊 Engine Telemetry")
     fig_linhas = make_subplots(specs=[[{"secondary_y": True}]])
-    
     fig_linhas.add_trace(go.Scatter(x=df.index, y=df['rpm'], name='RPM', line=dict(color='#87CEEB', width=3)), secondary_y=False)
     fig_linhas.add_trace(go.Scatter(x=df.index, y=df['velocidade'], name=t['vel'], line=dict(color='#0056b3', width=3)), secondary_y=True)
-    
     fig_linhas.update_layout(height=400, margin=dict(l=0, r=0, t=30, b=0), legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
-    fig_linhas.update_yaxes(title_text="RPM", secondary_y=False)
-    fig_linhas.update_yaxes(title_text="km/h", secondary_y=True)
     st.plotly_chart(fig_linhas, use_container_width=True)
 
-# COLUNA DIREITA: O GRÁFICO ESPACIAL (Mini-Mapa GPS)
 with col_grafico2:
     st.subheader("🗺️ Visão do Circuito (GPS)" if is_pt else "🗺️ Circuit View (GPS)")
     fig_mapa = go.Figure()
     
-    # Rastro passado
+    # Rastro Passado
     fig_mapa.add_trace(go.Scatter(
-        x=df["X"][:9], y=df["Y"][:9], 
-        mode='lines+markers', name='Passado' if is_pt else 'Past', 
-        line=dict(color='gray', dash='dot', width=2),
-        marker=dict(size=8, color='gray')
+        x=df["X"][:9], y=df["Y"][:9], mode='lines+markers', name='Passado', 
+        line=dict(color='lightgray', width=3), marker=dict(size=6, color='gray')
     ))
     
-    # Onde o piloto está agora
+    # Coordenadas do Presente
+    px_atual = df["X"].iloc[9]
+    py_atual = df["Y"].iloc[9]
+    
+    # Coordenadas do Futuro Amplificadas (Sensível ao Slider de Aceleração e Velocidade)
+    # Transforma a aceleração de -5.0 a +2.0 em um multiplicador de distância dramático
+    intensidade_inercia = ((acel_atual + 5) / 7.0) * 1.5 + (velocidade_prev / 200.0)
+    distancia_projetada = 20 + (35 * intensidade_inercia)
+    
+    futuro_x = px_atual - (distancia_projetada * 0.7)
+    futuro_y = py_atual - (distancia_projetada * 1.0)
+    
+    # 1. A LINHA DE CONEXÃO (Vetor de Inércia)
     fig_mapa.add_trace(go.Scatter(
-        x=[df["X"].iloc[9]], y=[df["Y"].iloc[9]], 
-        mode='markers', name='Presente' if is_pt else 'Present', 
-        marker=dict(color='#0056b3', size=14, line=dict(color='white', width=2))
+        x=[px_atual, futuro_x], y=[py_atual, futuro_y], mode='lines', 
+        name='Vetor' if is_pt else 'Vector', 
+        line=dict(color='orange', width=2, dash='dot')
+    ))
+    
+    # 2. Ponto Presente
+    fig_mapa.add_trace(go.Scatter(
+        x=[px_atual], y=[py_atual], mode='markers', name='Presente', 
+        marker=dict(color='#0056b3', size=16, line=dict(color='white', width=2))
     ))
 
-    # A previsão da IA (A Estrela)
-    if sucesso_api:
-        futuro_x = df["X"].iloc[9] - 35
-        futuro_y = df["Y"].iloc[9] - 25
-        
-        fator_inercia = velocidade_prev / 150.0 
-        
-        fig_mapa.add_trace(go.Scatter(
-            x=[futuro_x * fator_inercia], y=[futuro_y], 
-            mode='markers', name='Futuro (IA)' if is_pt else 'Future (AI)', 
-            marker=dict(color='red', size=18, symbol='star', line=dict(color='yellow', width=2))
-        ))
+    # 3. Ponto Futuro (Estrela)
+    fig_mapa.add_trace(go.Scatter(
+        x=[futuro_x], y=[futuro_y], mode='markers', name='Futuro (IA)', 
+        marker=dict(color='red', size=22, symbol='star', line=dict(color='yellow', width=2))
+    ))
 
-    # Estilizando para parecer um mapa
     fig_mapa.update_layout(
         height=400, margin=dict(l=0, r=0, t=30, b=0), 
-        xaxis=dict(visible=False, showgrid=False), 
-        yaxis=dict(visible=False, showgrid=False),
+        xaxis=dict(visible=False, showgrid=False, range=[-250, 20]), 
+        yaxis=dict(visible=False, showgrid=False, range=[50, 520]),
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
     )
     st.plotly_chart(fig_mapa, use_container_width=True)
 
-# --- TABELA DE DADOS BRUTOS ---
 st.markdown("---")
-with st.expander("🔎 Ver Matriz de Dados Enviada para a IA" if is_pt else "🔎 View Raw Data Matrix Sent to AI"):
-    df_exibicao = df[["velocidade", "rpm", "marcha", "aceleracao"]]
-    st.dataframe(df_exibicao, use_container_width=True)
+with st.expander("🔎 Ver Matriz de Dados Enviada para a IA" if is_pt else "🔎 View Raw Data Matrix"):
+    st.dataframe(df[["velocidade", "rpm", "marcha", "aceleracao"]], use_container_width=True)
