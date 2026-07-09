@@ -18,7 +18,7 @@ t = {
     "config_cloud": "⚙️ Conexão Cloud" if is_pt else "⚙️ Cloud Connection",
     "controles": "🕹️ Controles do Piloto" if is_pt else "🕹️ Driver Controls",
     "vel": "Velocidade Atual (km/h)" if is_pt else "Current Speed (km/h)",
-    "acel": "Pressão no Freio (G)" if is_pt else "Braking Pressure (G)",
+    "acel": "Acelerador (%)" if is_pt else "Accelerator (%)",
     "status_ia": "Status do Motor IA" if is_pt else "AI Engine Status",
     "latencia": "ms" if is_pt else "ms",
     "vel_agora": "Sua Velocidade" if is_pt else "Your Speed",
@@ -37,20 +37,21 @@ def resetar_dados():
     st.session_state["slider_vel"] = 170.0
     st.session_state["slider_rpm"] = 10500.0
     st.session_state["slider_marcha"] = 4.0
-    st.session_state["slider_acel"] = -2.0
+    st.session_state["slider_acel"] = 0.0 # Pé fora do acelerador na curva
 
 # --- HISTÓRICO REAL (PASSADO DO CARRO) ---
+# Ajustado para a escala real do modelo (Acelerador 0-100)
 if 'dados_historicos' not in st.session_state:
     st.session_state['dados_historicos'] = [
-        {"velocidade": 315.0, "rpm": 11500.0, "marcha": 8.0, "aceleracao": -0.5},
-        {"velocidade": 310.0, "rpm": 11300.0, "marcha": 8.0, "aceleracao": -1.2},
-        {"velocidade": 302.0, "rpm": 11000.0, "marcha": 8.0, "aceleracao": -2.5},
-        {"velocidade": 290.0, "rpm": 10500.0, "marcha": 7.0, "aceleracao": -3.8},
-        {"velocidade": 275.0, "rpm": 12000.0, "marcha": 7.0, "aceleracao": -4.2},
-        {"velocidade": 255.0, "rpm": 11500.0, "marcha": 6.0, "aceleracao": -4.5},
-        {"velocidade": 230.0, "rpm": 10800.0, "marcha": 6.0, "aceleracao": -4.8},
-        {"velocidade": 205.0, "rpm": 12200.0, "marcha": 5.0, "aceleracao": -4.5},
-        {"velocidade": 185.0, "rpm": 11500.0, "marcha": 5.0, "aceleracao": -3.5},
+        {"velocidade": 315.0, "rpm": 11500.0, "marcha": 8.0, "aceleracao": 100.0}, # Reta: Pé cravado
+        {"velocidade": 310.0, "rpm": 11300.0, "marcha": 8.0, "aceleracao": 0.0},   # Frenagem: Tirou o pé
+        {"velocidade": 302.0, "rpm": 11000.0, "marcha": 8.0, "aceleracao": 0.0},
+        {"velocidade": 290.0, "rpm": 10500.0, "marcha": 7.0, "aceleracao": 0.0},
+        {"velocidade": 275.0, "rpm": 12000.0, "marcha": 7.0, "aceleracao": 0.0},
+        {"velocidade": 255.0, "rpm": 11500.0, "marcha": 6.0, "aceleracao": 0.0},
+        {"velocidade": 230.0, "rpm": 10800.0, "marcha": 6.0, "aceleracao": 0.0},
+        {"velocidade": 205.0, "rpm": 12200.0, "marcha": 5.0, "aceleracao": 0.0},
+        {"velocidade": 185.0, "rpm": 11500.0, "marcha": 5.0, "aceleracao": 0.0},
     ]
 
 # --- BARRA LATERAL (CONTROLES) ---
@@ -64,7 +65,7 @@ with st.sidebar:
     vel_atual = st.slider(t["vel"], 50.0, 350.0, 170.0, step=1.0, key="slider_vel")
     rpm_atual = st.slider("Motor (RPM)", 5000.0, 13000.0, 10500.0, step=100.0, key="slider_rpm")
     marcha_atual = st.slider("Marcha / Gear", 1.0, 8.0, 4.0, step=1.0, key="slider_marcha")
-    acel_atual = st.slider(t["acel"], -5.0, 2.0, -2.0, step=0.1, key="slider_acel")
+    acel_atual = st.slider(t["acel"], 0.0, 100.0, 0.0, step=1.0, key="slider_acel")
     
     st.button(t["limpar"], type="secondary", use_container_width=True, on_click=resetar_dados)
 
@@ -147,7 +148,8 @@ with col_grafico2:
     py_atual = df["Y"].iloc[9]
     
     # --- FÍSICA E INÉRCIA (LIMITES DE PISTA) ---
-    # Limite ideal: 155 a 165 km/h
+    # A projeção física agora se baseia puramente na velocidade que a API previu, 
+    # refletindo fielmente se a IA acha que o carro segurou na curva ou não.
     excesso_velocidade = max(0, velocidade_prev - 165)
     fator_saida_pista = min(1.0, excesso_velocidade / 35.0) 
     
