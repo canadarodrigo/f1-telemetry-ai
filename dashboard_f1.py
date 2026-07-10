@@ -39,20 +39,18 @@ def resetar_dados():
     st.session_state["slider_marcha"] = 4.0
     st.session_state["slider_acel"] = 0.0 # Pé fora do acelerador na curva
 
-# --- HISTÓRICO REAL (PASSADO DO CARRO) ---
-# Ajustado para a escala real do modelo (Acelerador 0-100)
-if 'dados_historicos' not in st.session_state:
-    st.session_state['dados_historicos'] = [
-        {"velocidade": 315.0, "rpm": 11500.0, "marcha": 8.0, "aceleracao": 100.0}, # Reta: Pé cravado
-        {"velocidade": 310.0, "rpm": 11300.0, "marcha": 8.0, "aceleracao": 0.0},   # Frenagem: Tirou o pé
-        {"velocidade": 302.0, "rpm": 11000.0, "marcha": 8.0, "aceleracao": 0.0},
-        {"velocidade": 290.0, "rpm": 10500.0, "marcha": 7.0, "aceleracao": 0.0},
-        {"velocidade": 275.0, "rpm": 12000.0, "marcha": 7.0, "aceleracao": 0.0},
-        {"velocidade": 255.0, "rpm": 11500.0, "marcha": 6.0, "aceleracao": 0.0},
-        {"velocidade": 230.0, "rpm": 10800.0, "marcha": 6.0, "aceleracao": 0.0},
-        {"velocidade": 205.0, "rpm": 12200.0, "marcha": 5.0, "aceleracao": 0.0},
-        {"velocidade": 185.0, "rpm": 11500.0, "marcha": 5.0, "aceleracao": 0.0},
-    ]
+# --- HISTÓRICO BASE (MOLDE DA CURVA DO VERSTAPPEN) ---
+base_historico = [
+    {"velocidade": 315.0, "rpm": 11500.0, "marcha": 8.0, "aceleracao": 100.0},
+    {"velocidade": 310.0, "rpm": 11300.0, "marcha": 8.0, "aceleracao": 0.0},
+    {"velocidade": 302.0, "rpm": 11000.0, "marcha": 8.0, "aceleracao": 0.0},
+    {"velocidade": 290.0, "rpm": 10500.0, "marcha": 7.0, "aceleracao": 0.0},
+    {"velocidade": 275.0, "rpm": 12000.0, "marcha": 7.0, "aceleracao": 0.0},
+    {"velocidade": 255.0, "rpm": 11500.0, "marcha": 6.0, "aceleracao": 0.0},
+    {"velocidade": 230.0, "rpm": 10800.0, "marcha": 6.0, "aceleracao": 0.0},
+    {"velocidade": 205.0, "rpm": 12200.0, "marcha": 5.0, "aceleracao": 0.0},
+    {"velocidade": 185.0, "rpm": 11500.0, "marcha": 5.0, "aceleracao": 0.0},
+]
 
 # --- BARRA LATERAL (CONTROLES) ---
 with st.sidebar:
@@ -69,9 +67,24 @@ with st.sidebar:
     
     st.button(t["limpar"], type="secondary", use_container_width=True, on_click=resetar_dados)
 
-# Agrupando os dados (Passado + Presente)
+# --- ANCORAGEM DO HISTÓRICO AO PRESENTE ---
+# Deslocamos a curva do passado para que o ponto final faça sentido com o slider atual.
+# A forma da curva do Verstappen é mantida, mas ancorada à sua escolha.
+shift_vel = vel_atual - 170.0
+shift_rpm = rpm_atual - 10500.0
+
+janela_completa = []
+for pt in base_historico:
+    janela_completa.append({
+        "velocidade": max(0.0, pt["velocidade"] + shift_vel),
+        "rpm": max(0.0, pt["rpm"] + shift_rpm),
+        "marcha": pt["marcha"],
+        "aceleracao": pt["aceleracao"]
+    })
+
+# Ponto atual do slider
 ponto_dinamico = {"velocidade": vel_atual, "rpm": rpm_atual, "marcha": marcha_atual, "aceleracao": acel_atual}
-janela_completa = st.session_state['dados_historicos'] + [ponto_dinamico]
+janela_completa.append(ponto_dinamico)
 
 df = pd.DataFrame(janela_completa)
 df.index.name = "ms"
@@ -90,6 +103,12 @@ try:
         sucesso_api = True
 except:
     pass
+
+# --- AVALIAÇÃO DE MLOPS: DOMÍNIO DE TREINAMENTO (OOD) ---
+# Se a velocidade for muito baixa, o modelo sofre de "Dying ReLU" e cospe o Bias.
+is_ood = vel_atual < 100.0
+if is_ood:
+    st.warning("⚠️ **Aviso de MLOps (Out-of-Distribution):** Velocidade abaixo do limite de treinamento. Os neurônios ReLU desativaram e a IA está retornando o Viés (Bias) médio da pista (~175 km/h)." if is_pt else "⚠️ **MLOps Warning (Out-of-Distribution):** Speed below training limits. ReLU neurons died and AI is returning track average Bias (~175 km/h).")
 
 # --- PAINEL DE MÉTRICAS ---
 st.markdown("---")
