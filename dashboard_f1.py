@@ -52,7 +52,7 @@ with st.sidebar:
     marcha_atual = st.slider("Marcha / Gear", 1.0, 8.0, 3.0, step=1.0)
     acel_atual = st.slider(t["acel"], 0.0, 100.0, 0.0, step=1.0)
     
-    api_url = st.text_input("GCP Endpoint:", value="http://127.0.0.1:8000/prever")
+    api_url = st.text_input("GCP Endpoint:", value="https://f1-telemetry-api-50878659952.us-central1.run.app/prever")
 
 # --- CONSTRUCT PAYLOAD ---
 janela_completa = approach_history.copy()
