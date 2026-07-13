@@ -28,20 +28,6 @@ t = {
 st.title(t["titulo"])
 st.markdown(f"**{t['subtitulo']}**")
 
-# --- INTERLAGOS 2023 APPROACH (FIXED HISTORY) ---
-# The extreme high-speed approach down the pit straight before braking.
-approach_history = [
-    {"velocidade": 320.0, "rpm": 11800.0, "marcha": 8.0, "aceleracao": 100.0},
-    {"velocidade": 325.0, "rpm": 12000.0, "marcha": 8.0, "aceleracao": 100.0},
-    {"velocidade": 328.0, "rpm": 12200.0, "marcha": 8.0, "aceleracao": 100.0},
-    {"velocidade": 330.0, "rpm": 12300.0, "marcha": 8.0, "aceleracao": 100.0},
-    {"velocidade": 331.0, "rpm": 12400.0, "marcha": 8.0, "aceleracao": 100.0},
-    {"velocidade": 331.0, "rpm": 12400.0, "marcha": 8.0, "aceleracao": 100.0},
-    {"velocidade": 331.0, "rpm": 12400.0, "marcha": 8.0, "aceleracao": 100.0},
-    {"velocidade": 331.0, "rpm": 12400.0, "marcha": 8.0, "aceleracao": 100.0},
-    {"velocidade": 331.0, "rpm": 12400.0, "marcha": 8.0, "aceleracao": 100.0},
-]
-
 # --- SIDEBAR: DRIVER INPUT ---
 with st.sidebar:
     st.header(t["controles"])
@@ -54,8 +40,29 @@ with st.sidebar:
     
     api_url = st.text_input("GCP Endpoint:", value="https://f1-telemetry-api-50878659952.us-central1.run.app/prever")
 
-# --- CONSTRUCT PAYLOAD ---
-janela_completa = approach_history.copy()
+# --- CONSTRUCT PAYLOAD (SMOOTH BRAKING CURVE) ---
+# Em vez de um muro de tijolos, calculamos uma desaceleração progressiva de 331 km/h até a sua escolha.
+janela_completa = []
+vel_inicial = 331.0
+rpm_inicial = 12400.0
+
+for i in range(9):
+    # Interpolação suave para criar o visual real de uma freada no gráfico
+    fator = i / 9.0 
+    vel_interpolada = vel_inicial - ((vel_inicial - vel_atual) * fator)
+    rpm_interpolado = rpm_inicial - ((rpm_inicial - rpm_atual) * fator)
+    
+    # Redução gradativa de marchas
+    marcha_interpolada = 8.0 if i < 3 else (6.0 if i < 6 else marcha_atual)
+    
+    janela_completa.append({
+        "velocidade": vel_interpolada,
+        "rpm": rpm_interpolado,
+        "marcha": marcha_interpolada,
+        "aceleracao": 0.0 # Pé no freio durante a aproximação
+    })
+
+# Ponto final (O Ápice definido pelo usuário)
 ponto_dinamico = {"velocidade": vel_atual, "rpm": rpm_atual, "marcha": marcha_atual, "aceleracao": acel_atual}
 janela_completa.append(ponto_dinamico)
 
@@ -95,7 +102,7 @@ st.markdown("---")
 col_grafico1, col_grafico2 = st.columns(2)
 
 with col_grafico1:
-    st.subheader("📊 Telemetry: High-Speed Approach")
+    st.subheader("📊 Telemetry: Braking Curve")
     fig_linhas = make_subplots(specs=[[{"secondary_y": True}]])
     fig_linhas.add_trace(go.Scatter(x=df.index, y=df['rpm'], name='RPM', line=dict(color='#87CEEB', width=4)), secondary_y=False)
     fig_linhas.add_trace(go.Scatter(x=df.index, y=df['velocidade'], name='Speed', line=dict(color='#0056b3', width=4)), secondary_y=True)
