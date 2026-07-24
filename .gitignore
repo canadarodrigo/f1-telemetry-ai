@@ -2,3 +2,12 @@ venv/
 __pycache__/
 .env
 gcp-key.json
+
+cache/
+*.pyc
+data/v2/*.parquet
+data/v2/*.csv
+data/v2/*.json
+
+data/v2/*
+!data/v2/.gitkeep
